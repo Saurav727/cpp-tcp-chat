@@ -14,12 +14,26 @@ std::mutex clients_mutex;
 int handleClient(int client_fd) {
     std::cout << "Client Connected" << std::endl;
     char buffer[1024];
+    int bytes;
     while(true) {
         memset(buffer, 0, sizeof(buffer));
-        int bytes = recv(client_fd, buffer, sizeof(buffer), 0);
+        bytes = recv(client_fd, buffer, sizeof(buffer), 0);
         if (bytes <= 0) break;
-        std::cout << "Client: " << buffer << std::endl;
+        std::cout << "Client " << client_fd <<": " << buffer << std::endl;
+
+         {
+        std::lock_guard<std::mutex> lock(clients_mutex);
+        for(int client:clients) {
+            if (client_fd != client) {
+                send(client, buffer, bytes, 0);
+            }
+        }
+        }
+        
     }
+
+   
+
     close(client_fd);
     {
         std::lock_guard<std::mutex> lock(clients_mutex);
