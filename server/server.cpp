@@ -2,16 +2,43 @@
 #include <cstring>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <thread>
+#include <mutex>
+#include <vector>
+#include <algorithm>
 
-using namespace std;
+
+std::vector<int> clients;
+std::mutex clients_mutex;
+
+int handleClient(int client_fd) {
+    std::cout << "Client Connected" << std::endl;
+    char buffer[1024];
+    while(true) {
+        memset(buffer, 0, sizeof(buffer));
+        int bytes = recv(client_fd, buffer, sizeof(buffer), 0);
+        if (bytes <= 0) break;
+        std::cout << "Client: " << buffer << std::endl;
+    }
+    close(client_fd);
+    {
+        std::lock_guard<std::mutex> lock(clients_mutex);
+        clients.erase(
+            std::remove(clients.begin(), clients.end(), client_fd), 
+            clients.end()
+        );
+    }
+    return 0;
+}
+
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
-        cout << "Usage: ./server <port>\n";
+        std::cout << "Usage: ./server <port>\n";
         return 1;
     }
     
-    int port = stoi(argv[1]);
+    int port = std::stoi(argv[1]);
 
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
@@ -30,19 +57,22 @@ int main(int argc, char* argv[]) {
     }
 
     listen(server_fd, 1);
-    cout << "Server listening on port " << port << endl;
+    std::cout << "Server listening on port " << port << std::endl;
 
-    int client_fd = accept(server_fd, nullptr, nullptr);
-    cout << "Client Connected" << endl;
-
-    char buffer[1024];
     while(true) {
-        memset(buffer, 0, sizeof(buffer));
-        int bytes = recv(client_fd, buffer, sizeof(buffer), 0);
-        if (bytes <= 0) break;
-        cout << "Client: " << buffer << endl;
+        int client_fd = accept(server_fd, nullptr, nullptr);
+        if(client_fd < 0) continue;
+
+        {
+        std::lock_guard<std::mutex> lock(clients_mutex);
+        clients.push_back(client_fd);
+        }
+        std::thread t(handleClient, client_fd);
+        t.detach();
+
+        
     }
-    close(client_fd);
+    
     close(server_fd);
     return 0;
 
