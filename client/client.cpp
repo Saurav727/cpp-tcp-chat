@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <thread>
 
+
 using namespace std;
 
 void receiveMessage(int sock) {
@@ -18,10 +19,13 @@ void receiveMessage(int sock) {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc != 3) {
-        cout << "Usage: ./client <ip> <port>\n";
+    if (argc != 4) {
+        cout << "Usage: ./client <ip> <port> <nickname>\n";
         return 1;
     }
+    string nickname;
+    nickname = argv[3];
+    
 
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
@@ -42,6 +46,8 @@ int main(int argc, char* argv[]) {
     }
     
     cout << "Connected to server\n";
+
+    send(sock, nickname.c_str(), nickname.size() + 1, 0);    
 
     std::thread recv_thread(receiveMessage, sock);
     recv_thread.detach();

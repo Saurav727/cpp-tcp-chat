@@ -6,33 +6,37 @@
 #include <mutex>
 #include <vector>
 #include <algorithm>
+#include <string>
 
 
 std::vector<int> clients;
 std::mutex clients_mutex;
 
 int handleClient(int client_fd) {
-    std::cout << "Client Connected" << std::endl;
+    
     char buffer[1024];
+    char nickname[1024];
+    std::string finalMsg;
+    int nickBytes = recv(client_fd, nickname, sizeof(nickname), 0);
+    std::cout << nickname <<" Connected" << std::endl;
     int bytes;
     while(true) {
         memset(buffer, 0, sizeof(buffer));
         bytes = recv(client_fd, buffer, sizeof(buffer), 0);
         if (bytes <= 0) break;
-        std::cout << "Client " << client_fd <<": " << buffer << std::endl;
+        finalMsg = std::string(nickname) + ": " + std::string(buffer, bytes);
+        std::cout << finalMsg << std::endl;
 
          {
         std::lock_guard<std::mutex> lock(clients_mutex);
         for(int client:clients) {
             if (client_fd != client) {
-                send(client, buffer, bytes, 0);
+                send(client, finalMsg.c_str(), finalMsg.size(), 0);
             }
         }
         }
-        
-    }
 
-   
+    }
 
     close(client_fd);
     {
